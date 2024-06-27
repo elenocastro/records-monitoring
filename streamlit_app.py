@@ -47,7 +47,7 @@ encuestas_por_fecha4 = videos['start_date'].value_counts().sort_index()
 encuestas_por_fecha_total = pd.concat([encuestas_por_fecha1, encuestas_por_fecha2, 
                                        encuestas_por_fecha3, encuestas_por_fecha4], axis=1)
 encuestas_por_fecha_total.columns = ['EGRA', 'Docentes', 'Docentes-Autoadministrada', 'Videos Teach']
-encuestas_por_fecha_total = encuestas_por_fecha_total.fillna(0)
+encuestas_por_fecha_total = encuestas_por_fecha_total.fillna(int(0))
 encuestas_por_fecha_total = encuestas_por_fecha_total.sort_index(ascending=False)
 
 # Configurar el dashboard
@@ -61,7 +61,7 @@ encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
 
 
 # Mostrar el conteo de encuestas por fecha en una tabla
-st.table(encuestas_por_fecha_total)
+st.dataframe(encuestas_por_fecha_total.style.format("{:.0f}"))
 # Crear un gráfico de barras para visualizar los datos
 st.header('EGRA')
 st.bar_chart(encuestas_por_fecha1)
