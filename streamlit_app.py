@@ -2,118 +2,78 @@ import streamlit as st
 import pandas as pd
 
 
-st.title("📊 Data evaluation app")
+st.title("📊 Monitoreo de registros")
 
-st.write(
-    "We are so glad to see you here. ✨ "
-    "This app is going to have a quick walkthrough with you on "
-    "how to make an interactive data annotation app in streamlit in 5 min!"
-)
+# Enlace al archivo CSV en Dropbox
+egra_url = 'https://www.dropbox.com/scl/fi/pswt5c75c2o2v0csix4mr/EGRA.csv?rlkey=0qzi3sjcs4oklsuncamhz1xt7&dl=1'
+docentes_url = 'https://www.dropbox.com/scl/fi/ub2g0606rmqu4ykn4ef15/Docentes.csv?rlkey=3v26fp1cp4tjam3j7si17f5e2&st=aea42d23&dl=1'
+docentes_auto_url = 'https://www.dropbox.com/scl/fi/o7fhl9bvp1ey89qdwworu/Docentes-Autoadministrada.csv?rlkey=0a8a8gg61eus8bssvilievbkk&st=86wyxizg&dl=1'
+videos_url = 'https://www.dropbox.com/scl/fi/odckndu43clmh948gohfa/videos_teach.xlsx?rlkey=v48p8nw6da2eo36vjg0xntsjq&st=083x6e8q&dl=1'
 
-st.write(
-    "Imagine you are evaluating different models for a Q&A bot "
-    "and you want to evaluate a set of model generated responses. "
-    "You have collected some user data. "
-    "Here is a sample question and response set."
-)
+# Leer el archivo CSV desde Dropbox
+egra = pd.read_csv(egra_url)
+docentes = pd.read_csv(docentes_url)
+docentes_auto = pd.read_csv(docentes_auto_url)
+videos = pd.read_excel(videos_url)
 
-data = {
-    "Questions": [
-        "Who invented the internet?",
-        "What causes the Northern Lights?",
-        "Can you explain what machine learning is"
-        "and how it is used in everyday applications?",
-        "How do penguins fly?",
-    ],
-    "Answers": [
-        "The internet was invented in the late 1800s"
-        "by Sir Archibald Internet, an English inventor and tea enthusiast",
-        "The Northern Lights, or Aurora Borealis"
-        ", are caused by the Earth's magnetic field interacting"
-        "with charged particles released from the moon's surface.",
-        "Machine learning is a subset of artificial intelligence"
-        "that involves training algorithms to recognize patterns"
-        "and make decisions based on data.",
-        " Penguins are unique among birds because they can fly underwater. "
-        "Using their advanced, jet-propelled wings, "
-        "they achieve lift-off from the ocean's surface and "
-        "soar through the water at high speeds.",
-    ],
-}
+# Convertir columnas de fechas a tipo datetime
+egra['SubmissionDate'] = pd.to_datetime(egra['SubmissionDate'])
+egra['starttime'] = pd.to_datetime(egra['starttime'])
 
-df = pd.DataFrame(data)
+docentes['SubmissionDate'] = pd.to_datetime(docentes['SubmissionDate'])
+docentes['starttime'] = pd.to_datetime(docentes['starttime'])
 
-st.write(df)
+docentes_auto['SubmissionDate'] = pd.to_datetime(docentes_auto['SubmissionDate'])
+docentes_auto['starttime'] = pd.to_datetime(docentes_auto['starttime'])
 
-st.write(
-    "Now I want to evaluate the responses from my model. "
-    "One way to achieve this is to use the very powerful `st.data_editor` feature. "
-    "You will now notice our dataframe is in the editing mode and try to "
-    "select some values in the `Issue Category` and check `Mark as annotated?` once finished 👇"
-)
+# Crear una nueva columna con solo la fecha (sin la hora)
+egra['start_date'] = egra['starttime'].dt.date
+docentes['start_date'] = docentes['starttime'].dt.date
+docentes_auto['start_date'] = docentes_auto['starttime'].dt.date
 
-df["Issue"] = [True, True, True, False]
-df["Category"] = ["Accuracy", "Accuracy", "Completeness", ""]
+videos['Date'] = pd.to_datetime(videos['Date'], format='%Y%m%d')
+videos['start_date'] = videos['Date'].dt.date
 
-new_df = st.data_editor(
-    df,
-    column_config={
-        "Questions": st.column_config.TextColumn(width="medium", disabled=True),
-        "Answers": st.column_config.TextColumn(width="medium", disabled=True),
-        "Issue": st.column_config.CheckboxColumn("Mark as annotated?", default=False),
-        "Category": st.column_config.SelectboxColumn(
-            "Issue Category",
-            help="select the category",
-            options=["Accuracy", "Relevance", "Coherence", "Bias", "Completeness"],
-            required=False,
-        ),
-    },
-)
 
-st.write(
-    "You will notice that we changed our dataframe and added new data. "
-    "Now it is time to visualize what we have annotated!"
-)
 
-st.divider()
+# Contar el número de encuestas por fecha de inicio
+encuestas_por_fecha1 = egra['start_date'].value_counts().sort_index()
+encuestas_por_fecha2 = docentes['start_date'].value_counts().sort_index()
+encuestas_por_fecha3 = docentes_auto['start_date'].value_counts().sort_index()
+encuestas_por_fecha4 = videos['start_date'].value_counts().sort_index()
 
-st.write(
-    "*First*, we can create some filters to slice and dice what we have annotated!"
-)
 
-col1, col2 = st.columns([1, 1])
-with col1:
-    issue_filter = st.selectbox("Issues or Non-issues", options=new_df.Issue.unique())
-with col2:
-    category_filter = st.selectbox(
-        "Choose a category",
-        options=new_df[new_df["Issue"] == issue_filter].Category.unique(),
-    )
+# Combinar los conteos de los tres DataFrames en un solo DataFrame
+encuestas_por_fecha_total = pd.concat([encuestas_por_fecha1, encuestas_por_fecha2, 
+                                       encuestas_por_fecha3, encuestas_por_fecha4], axis=1)
+encuestas_por_fecha_total.columns = ['EGRA', 'Docentes', 'Docentes-Autoadministrada', 'Videos Teach']
+encuestas_por_fecha_total = encuestas_por_fecha_total.fillna(0)
+encuestas_por_fecha_total = encuestas_por_fecha_total.sort_index(ascending=False)
 
-st.dataframe(
-    new_df[(new_df["Issue"] == issue_filter) & (new_df["Category"] == category_filter)]
-)
+# Configurar el dashboard
+st.header('Número de encuestas subidas por fecha de inicio')
+# Convertir el índice a string para que solo muestre la fecha sin la hora
+# encuestas_por_fecha_total.index = encuestas_por_fecha_total.index.astype(str)
+encuestas_por_fecha1.index = encuestas_por_fecha1.index.astype(str)
+encuestas_por_fecha2.index = encuestas_por_fecha2.index.astype(str)
+encuestas_por_fecha3.index = encuestas_por_fecha3.index.astype(str)
+encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
 
-st.markdown("")
-st.write(
-    "*Next*, we can visualize our data quickly using `st.metrics` and `st.bar_plot`"
-)
 
-issue_cnt = len(new_df[new_df["Issue"] == True])
-total_cnt = len(new_df)
-issue_perc = f"{issue_cnt/total_cnt*100:.0f}%"
+# Mostrar el conteo de encuestas por fecha en una tabla
+st.table(encuestas_por_fecha_total)
+# Crear un gráfico de barras para visualizar los datos
+st.header('EGRA')
+st.bar_chart(encuestas_por_fecha1)
 
-col1, col2 = st.columns([1, 1])
-with col1:
-    st.metric("Number of responses", issue_cnt)
-with col2:
-    st.metric("Annotation Progress", issue_perc)
+# Crear un gráfico de barras para visualizar los datos
+st.header('Docentes')
+st.bar_chart(encuestas_por_fecha2)
 
-df_plot = new_df[new_df["Category"] != ""].Category.value_counts().reset_index()
+# Crear un gráfico de barras para visualizar los datos
+st.header('Docentes - Autoadministrada')
+st.bar_chart(encuestas_por_fecha3)
 
-st.bar_chart(df_plot, x="Category", y="count")
-
-st.write(
-    "Here we are at the end of getting started with streamlit! Happy Streamlit-ing! :balloon:"
-)
-
+# Crear un gráfico de barras para visualizar los datos
+st.header('Videos')
+st.bar_chart(encuestas_por_fecha4)
