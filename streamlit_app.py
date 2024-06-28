@@ -86,7 +86,7 @@ st.subheader('EGRA')
 st.progress(progreso_egra)
 st.write(f'Progreso: {progreso_egra}%')
 
-st.subheader('Docentes (Incluye Docentes y Docentes-Autoadministradas)')
+st.subheader('Docentes (incluye autoadministradas)')
 st.progress(progreso_docentes)
 st.write(f'Progreso: {progreso_docentes}%')
 
