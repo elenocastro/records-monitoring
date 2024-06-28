@@ -62,18 +62,51 @@ encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
 
 # Mostrar el conteo de encuestas por fecha en una tabla
 st.dataframe(encuestas_por_fecha_total.style.format("{:.0f}"))
+
+# Calcular los totales para las barras de progreso
+totals = encuestas_por_fecha_total.sum(axis=0)
+egras_total = totals['EGRA']  # Suponiendo que 'Encuestas1' es EGRA
+docentes_total = totals['Docentes'] + totals['Docentes-Autoadministrada']  # Suponiendo que 'Encuestas2' y 'Encuestas3' son docentes y docentes-autoadministradas
+videos_total = totals['Videos Teach']  # Restar los otros totales para obtener el total de videos
+
+# Definir las metas
+meta_egra = 5000
+meta_docentes = 1408
+meta_videos = 1408
+
+# Calcular los porcentajes de progreso
+progreso_egra = int(egras_total / meta_egra * 100)
+progreso_docentes = int(docentes_total / meta_docentes * 100)
+progreso_videos = int(videos_total / meta_videos * 100)
+
+# Mostrar las barras de progreso con etiquetas de porcentaje
+st.header('Progreso hacia las metas')
+
+st.subheader('EGRA')
+st.progress(progreso_egra)
+st.write(f'Progreso: {progreso_egra}%')
+
+st.subheader('Docentes (Incluye Docentes y Docentes-Autoadministradas)')
+st.progress(progreso_docentes)
+st.write(f'Progreso: {progreso_docentes}%')
+
+st.subheader('Videos Teach')
+st.progress(progreso_videos)
+st.write(f'Progreso: {progreso_videos}%')
+
 # Crear un gráfico de barras para visualizar los datos
-st.header('EGRA')
+st.header('Frecuencia diaria')
+st.subheader('EGRA')
 st.bar_chart(encuestas_por_fecha1)
 
 # Crear un gráfico de barras para visualizar los datos
-st.header('Docentes')
+st.subheader('Docentes')
 st.bar_chart(encuestas_por_fecha2)
 
 # Crear un gráfico de barras para visualizar los datos
-st.header('Docentes - Autoadministrada')
+st.subheader('Docentes - Autoadministrada')
 st.bar_chart(encuestas_por_fecha3)
 
 # Crear un gráfico de barras para visualizar los datos
-st.header('Videos')
+st.subheader('Videos')
 st.bar_chart(encuestas_por_fecha4)
