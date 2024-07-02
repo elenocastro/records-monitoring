@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 
 st.title("📊 Monitoreo de registros")
@@ -172,33 +173,45 @@ with tab2:
     mapa_data.columns = ['lat', 'lon']
     st.map(mapa_data)
 
+
+# Metas
+metas = {
+    "Control": 274,
+    "Training only": 293,
+    "Training+FUSAL": 298,
+    "Training+GP": 277,
+    "Training+Nudges": 266
+}
+
+encuestas_ce['DT'] = encuestas_ce[['D','DA']].sum(axis = 1)
+encuestas_tratamiento = encuestas_ce.groupby(['treatment'])[['E','DT','V']].sum()
+# st.table(encuestas_tratamiento.astype(int))
+
 with tab3:
-    # Metas
-    metas = {
-        "Control": 274,
-        "Training only": 293,
-        "Training+FUSAL": 298,
-        "Training+GP": 277,
-        "Training+Nudges": 266
-    }
+    st.header("Progreso por Categoría")
 
-    encuestas_ce['DT'] = encuestas_ce[['D','DA']].sum(axis = 1)
-    encuestas_tratamiento = encuestas_ce.groupby(['treatment'])[['E','DT','V']].sum()
-    # st.table(encuestas_tratamiento.astype(int))
-
-    for grupo, row in encuestas_tratamiento.iterrows():
-        meta = metas[grupo]
-        
-        progreso_egra = int((row['E'] / 1000) * 100)
-        progreso_docentes = int((row['DT'] / meta) * 100)
-        progreso_videos = int((row['V'] / meta) * 100)
-        
-        st.subheader(grupo)
-        st.text(f"EGRA: {progreso_egra}%")
+    # Para EGRA (Meta: 1000 para cada grupo)
+    st.subheader("EGRA")
+    for grupo in encuestas_tratamiento.index:
+        progreso_egra = int((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100)
+        progreso_egra_d = np.round((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100,1)
+        st.text(f"{grupo}: {progreso_egra_d}% - ({int(encuestas_tratamiento.loc[grupo, 'E'])}/1000)")
         st.progress(progreso_egra)
-        
-        st.text(f"Docentes: {progreso_docentes}%")
+
+    # Para Docentes (Meta: específica para cada grupo)
+    st.subheader("Docentes")
+    for grupo in encuestas_tratamiento.index:
+        meta_docentes = metas[grupo]
+        progreso_docentes = int((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes) * 100)
+        progreso_docentes_d = np.round((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes * 100),1)
+        st.text(f"{grupo}: {progreso_docentes_d}% - ({int(encuestas_tratamiento.loc[grupo, 'DT'])}/{meta_docentes})")
         st.progress(progreso_docentes)
-        
-        st.text(f"Videos: {progreso_videos}%")
+
+    # Para Videos (Meta: específica para cada grupo)
+    st.subheader("Videos")
+    for grupo in encuestas_tratamiento.index:
+        meta_videos = metas[grupo]
+        progreso_videos = int((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos) * 100)
+        progreso_videos_d = np.round((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos * 100),1)
+        st.text(f"{grupo}: {progreso_videos_d}% - ({int(encuestas_tratamiento.loc[grupo, 'V'])}/{meta_videos})")
         st.progress(progreso_videos)
