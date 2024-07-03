@@ -9,7 +9,7 @@ st.title("📊 Monitoreo de registros")
 egra_url = 'https://www.dropbox.com/scl/fi/pswt5c75c2o2v0csix4mr/EGRA.csv?rlkey=0qzi3sjcs4oklsuncamhz1xt7&dl=1'
 docentes_url = 'https://www.dropbox.com/scl/fi/ub2g0606rmqu4ykn4ef15/Docentes.csv?rlkey=3v26fp1cp4tjam3j7si17f5e2&st=aea42d23&dl=1'
 docentes_auto_url = 'https://www.dropbox.com/scl/fi/o7fhl9bvp1ey89qdwworu/Docentes-Autoadministrada.csv?rlkey=0a8a8gg61eus8bssvilievbkk&st=86wyxizg&dl=1'
-videos_url = 'https://www.dropbox.com/scl/fi/favemgejwdr70cyu2pn2h/rename_files.xlsx?rlkey=7pcxz2at3pdvyhu3mkrwvx0hd&st=sgudphhj&dl=1'
+videos_url = 'https://www.dropbox.com/scl/fi/samdmeeqx1zbqlxfswisw/videos_teach.xlsx?rlkey=obn1zepk7i786su2f5pdt72ci&st=l7eyie0q&dl=1'
 docentes_ce_url = 'https://www.dropbox.com/scl/fi/p27k5o7zup7igecfxrjkk/CONTINUIDAD_27062024.xlsx?rlkey=j52pkyf338d1d0ym76igi0440&st=xouj06hu&dl=1'
 assignment_ce_url = 'https://www.dropbox.com/scl/fi/uvh67un6k4e6en2yccr7d/assignment_groups_03072023.dta?rlkey=ck70b2ybt7a6hiccpfz5umgwx&st=uud5uifp&dl=1'
 
@@ -169,8 +169,10 @@ with tab2:
     # Mostrar el mapa
     st.header('Mapa de Centros Educativos Encuestados')
 
-    mapa_data = encuestas_ce.loc[encuestas_ce.Latitud != 0, ['Latitud', 'Longitud']]
+    mapa_data = encuestas_ce.loc[(encuestas_ce.Latitud != 0), ['Latitud', 'Longitud']]
     mapa_data.columns = ['lat', 'lon']
+    mapa_data.dropna(inplace = True)
+    mapa_data.drop_duplicates(inplace = True)
     st.map(mapa_data)
 
 
