@@ -9,17 +9,22 @@ st.title("📊 Monitoreo de registros")
 egra_url = 'https://www.dropbox.com/scl/fi/pswt5c75c2o2v0csix4mr/EGRA.csv?rlkey=0qzi3sjcs4oklsuncamhz1xt7&dl=1'
 docentes_url = 'https://www.dropbox.com/scl/fi/ub2g0606rmqu4ykn4ef15/Docentes.csv?rlkey=3v26fp1cp4tjam3j7si17f5e2&st=aea42d23&dl=1'
 docentes_auto_url = 'https://www.dropbox.com/scl/fi/o7fhl9bvp1ey89qdwworu/Docentes-Autoadministrada.csv?rlkey=0a8a8gg61eus8bssvilievbkk&st=86wyxizg&dl=1'
-videos_url = 'https://www.dropbox.com/scl/fi/samdmeeqx1zbqlxfswisw/videos_teach.xlsx?rlkey=obn1zepk7i786su2f5pdt72ci&st=l7eyie0q&dl=1'
+videos_url = 'https://www.dropbox.com/scl/fi/r8usgt8n0iyshbzklyqcz/videos_teach_long.xlsx?rlkey=eygtkzllp3ng9ouzkprkroquh&st=rax4coo9&dl=1'
 docentes_ce_url = 'https://www.dropbox.com/scl/fi/p27k5o7zup7igecfxrjkk/CONTINUIDAD_27062024.xlsx?rlkey=j52pkyf338d1d0ym76igi0440&st=xouj06hu&dl=1'
 assignment_ce_url = 'https://www.dropbox.com/scl/fi/uvh67un6k4e6en2yccr7d/assignment_groups_03072023.dta?rlkey=ck70b2ybt7a6hiccpfz5umgwx&st=uud5uifp&dl=1'
+docente_per_nie_url = 'https://www.dropbox.com/scl/fi/sribjlu271u6dcoyf0jw7/docente_nie.csv?rlkey=542yce4sqed1wxtds69z4katk&dl=1'
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
 docentes = pd.read_csv(docentes_url)
 docentes_auto = pd.read_csv(docentes_auto_url)
 videos = pd.read_excel(videos_url)
-docentes_ce = pd.read_excel(docentes_ce_url)
+docentes_ce = pd.read_excel(docentes_ce_url, converters = {'NIE':str, 'unique_id': str})
 assignment_ce = pd.read_stata(assignment_ce_url)
+docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': str})
+
+#videos añadiendo unique_id
+videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
 
 
 # Convertir columnas de fechas a tipo datetime
@@ -80,12 +85,43 @@ progreso_egra = int(egras_total / meta_egra * 100)
 progreso_docentes = int(docentes_total / meta_docentes * 100)
 progreso_videos = int(videos_total / meta_videos * 100)
 
+#Contando encuestas por docente
 
+## ANADIENDO docente_id para todos los casos posibles
+egra = egra.merge(docentes_per_nie, left_on = 'id_estudiante_nie', right_on = 'per_nie', how = 'left')
+egra.rename(columns = {'unique_id': 'docente_administrativo'}, inplace = True)
+egra['docente_merge'] = pd.to_numeric(egra['docente'], errors='coerce', downcast='integer')
+egra.loc[egra.docente.isna(), 'docente_merge'] = egra.loc[egra.docente.isna(), 'docente_administrativo']
+egra['docente_merge'] = pd.to_numeric(egra['docente_merge'], errors='coerce', downcast='integer')
 
+#contando por docente
+egra_x_doc = egra.docente_merge.value_counts()
+doc_x_doc = docentes.docente.value_counts()
+docentes_auto_x_doc = docentes_auto['docente'].value_counts()
+videos_doc = videos['unique_id'].value_counts()
 
+egra_x_doc.index = egra_x_doc.index.astype(int)
+doc_x_doc.index = doc_x_doc.index.astype(int)
+docentes_auto_x_doc.index = docentes_auto_x_doc.index.astype(int)
+videos_doc.index = videos_doc.index.astype(int)
 
-tab1, tab2, tab3 = st.tabs(["Datos Totales por Fecha", "Datos Totales por Centro Educativo", 
-                      'Datos recolectados por Grupo de Tratamiento'])
+#anexando por docente
+data_doc = pd.concat([egra_x_doc, doc_x_doc, docentes_auto_x_doc, videos_doc], axis = 1)
+data_doc.columns = ['E', 'D', 'DA', 'V'] 
+
+#ajustando index
+data_doc.reset_index(inplace = True)
+data_doc.rename(columns = {'index': 'unique_id'},inplace = True)
+docentes_ce['unique_id'] = docentes_ce['unique_id'].astype(int)
+
+#añadiendo nombre y centro
+data_doc = data_doc.merge(docentes_ce[['unique_id', 'NIP',  'Código', 'Nombre_Docente']],
+               on = 'unique_id', how = 'left')
+data_doc = data_doc.set_index(['unique_id', 'NIP','Código', 'Nombre_Docente' ]).fillna(0)
+
+tab1, tab2, tab3, tab4 = st.tabs(["Por Fecha", "Por Centro Educativo", 
+                      'Por Grupo de Tratamiento', 'Por Docente'])
+
 
 with tab1:
     # Mostrar las barras de progreso con etiquetas de porcentaje
@@ -135,7 +171,7 @@ docentes = docentes.merge(docentes_ce[['Código', 'unique_id']], left_on = 'doce
 egra_x_ce = egra['School'].value_counts()
 docentes_x_ce = docentes['Código'].value_counts()
 docentes_auto_x_ce = docentes_auto['Código'].value_counts()
-videos_ce = videos[videos['Name Valid']]['CE Code'].value_counts()
+videos_ce = videos[videos['Name Valid']]['CE en Continuidad'].value_counts()
 
 encuestas_ce = pd.concat([egra_x_ce, docentes_x_ce, docentes_auto_x_ce, videos_ce], axis = 1)
 encuestas_ce.columns = ['E', 'D', 'DA', 'V'] 
@@ -217,3 +253,21 @@ with tab3:
         progreso_videos_d = np.round((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos * 100),1)
         st.text(f"{grupo}: {progreso_videos_d}% - ({int(encuestas_tratamiento.loc[grupo, 'V'])}/{meta_videos})")
         st.progress(progreso_videos)
+
+with tab4:
+    st.header('Número de encuestas por Centro Educativo')
+    st.write('E - EGRA')
+    st.write('D - Docentes')
+    st.write('DA - Docentes - Autoadministrados')
+    st.write('V - Videos')
+    
+    # Añadir buscador para filtrar por centro educativo
+    search_term = st.text_input('Buscar por Docente')
+    if search_term:
+        filtered_data = data_doc[data_doc.index.get_level_values('Nombre_Docente').str.contains(search_term, case=False)]
+    else:
+        filtered_data = data_doc
+    
+    # Convertir los valores a enteros
+    filtered_data = filtered_data[['E', 'D', 'DA', 'V']].astype(int)
+    st.dataframe(filtered_data)
