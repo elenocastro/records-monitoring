@@ -255,7 +255,7 @@ with tab3:
         st.progress(progreso_videos)
 
 with tab4:
-    st.header('Número de encuestas por Centro Educativo')
+    st.header('Número de encuestas por Docente')
     st.write('E - EGRA')
     st.write('D - Docentes')
     st.write('DA - Docentes - Autoadministrados')
@@ -271,3 +271,9 @@ with tab4:
     # Convertir los valores a enteros
     filtered_data = filtered_data[['E', 'D', 'DA', 'V']].astype(int)
     st.dataframe(filtered_data)
+
+
+    st.header('Estudiantes sin docente')
+
+    sin_nie = egra.loc[egra.docente_merge.isna(),['starttime','encuestador','School', 'id_estudiante_nie']]
+    st.dataframe(sin_nie)
