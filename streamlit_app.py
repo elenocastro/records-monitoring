@@ -119,8 +119,8 @@ data_doc = data_doc.merge(docentes_ce[['unique_id', 'NIP',  'Código', 'Nombre_D
                on = 'unique_id', how = 'left')
 data_doc = data_doc.set_index(['unique_id', 'NIP','Código', 'Nombre_Docente' ]).fillna(0)
 
-tab1, tab2, tab3, tab4 = st.tabs(["Por Fecha", "Por Centro Educativo", 
-                      'Por Grupo de Tratamiento', 'Por Docente'])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Por Fecha", "Por Centro Educativo", 
+                      'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias'])
 
 
 with tab1:
@@ -255,6 +255,43 @@ with tab3:
         st.progress(progreso_videos)
 
 with tab4:
+
+    # Mostrar las barras de progreso con etiquetas de porcentaje
+    
+    cond1 = (data_doc['E'] != 0)
+    cond2 = ~(((data_doc['D'] == 0) & (data_doc['DA'] == 0)))
+    cond2 = data_doc[['D', 'DA']].sum(axis = 1) != 0
+    cond3 = (data_doc['V'] != 0)
+
+    n_completo = len(data_doc[cond1 & cond2 & cond3])
+    n_egras = len(data_doc[data_doc['E'] == 0])
+    n_encu = len(data_doc[(data_doc['D'] == 0) & (data_doc['DA'] == 0)])
+    n_video = len(data_doc[data_doc['V'] == 0])
+    total_doc = len(data_doc)
+
+    st.header('Docentes con data completa:')
+    por_n_completo = int(n_completo/len(data_doc) * 100)
+    st.write(f'Docentes completos: {por_n_completo}% - ({int(n_completo)}/{total_doc})')
+    st.progress(por_n_completo)
+
+    st.header('Docentes con data incompleta:')
+    por_n_egras = int(n_egras/len(data_doc) * 100)
+    por_n_encu = int(n_encu/len(data_doc) * 100)
+    por_n_video = int(n_video/len(data_doc) * 100)
+
+    st.write(f'Docentes sin Egras: {por_n_egras}% - ({int(n_egras)}/{total_doc})')
+    st.progress(por_n_egras)
+    #st.write(f'Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
+
+    st.write(f'Docentes sin Encuestas: {por_n_encu}% - ({int(n_encu)}/{total_doc})')
+    st.progress(por_n_encu)
+    #st.write(f'Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
+
+    st.write(f'Docentes sin Vídeos: {por_n_video}% - ({int(n_video)}/{total_doc})')
+    st.progress(por_n_video)
+    #st.write(f'Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
+
+
     st.header('Número de encuestas por Docente')
     st.write('E - EGRA')
     st.write('D - Docentes')
@@ -262,9 +299,18 @@ with tab4:
     st.write('V - Videos')
     
     # Añadir buscador para filtrar por centro educativo
-    search_term = st.text_input('Buscar por Docente')
-    if search_term:
-        filtered_data = data_doc[data_doc.index.get_level_values('Nombre_Docente').str.contains(search_term, case=False)]
+    search_doc = st.text_input('Buscar por Docente')
+    search_school = st.text_input('Buscar por Escuela [usar código sin comas, ej: 11135]')
+    if search_doc or search_school:
+        if search_doc:
+            cond1 = data_doc.index.get_level_values('Nombre_Docente').str.contains(search_doc, case=False)
+        else:
+            cond1 = True
+        if search_school:
+            cond2 = data_doc.index.get_level_values('Código') == np.int32(search_school)
+        else:
+            cond2 = True
+        filtered_data = data_doc[cond1 & cond2]
     else:
         filtered_data = data_doc
     
@@ -272,8 +318,36 @@ with tab4:
     filtered_data = filtered_data[['E', 'D', 'DA', 'V']].astype(int)
     st.dataframe(filtered_data)
 
+    
+    st.header(f'Docentes sin EGRAs (N = {str(n_egras)})')
+    st.dataframe(data_doc[data_doc['E'] == 0])
 
-    st.header('Estudiantes sin docente')
+    
+    st.header(f'Docentes sin Encuestas (N = {str(n_encu)})')
+    st.dataframe(data_doc[(data_doc['D'] == 0) & (data_doc['DA'] == 0)])
 
-    sin_nie = egra.loc[egra.docente_merge.isna(),['starttime','encuestador','School', 'id_estudiante_nie']]
-    st.dataframe(sin_nie)
+    
+    st.header(f'Docentes sin Videos (N = {str(n_video)})')
+    st.dataframe(data_doc[data_doc['V'] == 0])
+
+
+with tab5:
+    
+    st.subheader('Estudiantes sin docente')
+    sin_id_doc = egra.loc[egra.docente_merge.isna(),['starttime','encuestador','School', 'id_estudiante_nie']]
+    sin_id_doc.set_index(['id_estudiante_nie'], inplace = True)
+    st.dataframe(sin_id_doc)
+
+    
+    duplicados = egra[egra.id_estudiante_nie.duplicated(keep = False)]
+    duplicados = duplicados[['id_estudiante_nie', 'School', 'starttime', 'encuestador', 'context_est_1', 'context_est_2', 'KEY']]
+    duplicados.rename(columns = {'context_est_1': 'Género', 
+                                 'context_est_2': 'Edad',
+                                 'startime': 'Fecha'}, inplace = True)
+    duplicados.set_index(['starttime', 'id_estudiante_nie'], inplace = True)
+    st.subheader('Duplicados')
+    st.dataframe(duplicados)
+
+
+
+
