@@ -119,8 +119,8 @@ data_doc = data_doc.merge(docentes_ce[['unique_id', 'NIP',  'Código', 'Nombre_D
                on = 'unique_id', how = 'left')
 data_doc = data_doc.set_index(['unique_id', 'NIP','Código', 'Nombre_Docente' ]).fillna(0)
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Por Fecha", "Por Centro Educativo", 
-                      'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias'])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Por Fecha", "Por Centro Educativo", 
+                      'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias', 'NIEs x Docente'])
 
 
 with tab1:
@@ -351,3 +351,31 @@ with tab5:
 
 
 
+with tab6:
+
+    st.header('NIEs por Docentes')
+
+    docentes_nie = egra.merge(docentes_ce[['unique_id', 'Nombre_Docente', 'Código', 'Centroeducativo']],
+               left_on = 'docente_merge', right_on = 'unique_id', how = 'left')
+    docentes_nie['nie_duplicado'] = docentes_nie.id_estudiante_nie.duplicated(keep = False)
+    docentes_nie = docentes_nie[['id_estudiante_nie', 'unique_id', 'Nombre_Docente', 'Código', 'nie_duplicado']]
+    docentes_nie.set_index(['id_estudiante_nie', 'Nombre_Docente'], inplace = True)
+    
+    # Añadir buscador para filtrar por centro educativo
+    search_doc2 = st.text_input('Buscar por Docente ')
+    search_school2 = st.text_input('Buscar por Código de Escuela [usar código sin comas, ej: 11135]')
+    if search_doc2 or search_school2:
+        if search_doc2:
+            cond1 = docentes_nie.index.get_level_values('Nombre_Docente').str.contains(search_doc2, case=False)
+        else:
+            cond1 = True
+        if search_school2:
+            cond2 = docentes_nie.index.get_level_values('Código') == np.int32(search_school2)
+        else:
+            cond2 = True
+        filtered_data = docentes_nie[cond1 & cond2]
+    else:
+        filtered_data = docentes_nie
+    
+    # Convertir los valores a enteros
+    st.dataframe(filtered_data)
