@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from statsmodels.formula.api import ols
+import statsmodels.api as sm
+import plotly.graph_objects as go
 
 
 st.title("📊 Monitoreo de registros")
@@ -24,7 +27,7 @@ assignment_ce = pd.read_stata(assignment_ce_url)
 docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': str})
 
 #videos añadiendo unique_id
-videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
+#videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
 
 
 # Convertir columnas de fechas a tipo datetime
@@ -123,6 +126,88 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Por Fecha", "Por Centro Educativo
                       'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias', 'NIEs x Docente'])
 
 
+# Revisando attrition por grupo
+docentes_ce = docentes_ce.merge(data_doc.reset_index()[['unique_id', 'E', 'D', 'DA', 'V']], on = 'unique_id', how = 'left')
+data_ava = ['E', 'D', 'DA', 'V']
+docentes_ce[data_ava] = docentes_ce[data_ava].fillna(0)
+docentes_ce['DT'] = docentes_ce[['D', 'DA']].sum(axis = 1)
+docentes_ce[['Ei','DTi','Vi']] = (docentes_ce[['E','DT','V']] > 0)*1
+docentes_ce_reg = docentes_ce[['Ei','DTi','Vi','Tratamiento', 'Código']]
+
+def run_clustered_regression(df, dependent_var, cluster_var='Código'):
+    model = ols(f'{dependent_var} ~ Tratamiento', data=df).fit(cov_type='cluster', cov_kwds={'groups': df[cluster_var]})
+    return model
+
+# Realizar la regresión para cada variable
+models = {}
+variables = ['Ei', 'DTi', 'Vi']
+
+for var in variables:
+    models[var] = run_clustered_regression(docentes_ce_reg, var)
+
+# Obtener promedios y CI para graficar
+def get_means_and_ci(model):
+    intercept = model.params['Intercept']
+    treatment_groups = model.params.index  # Incluye el intercepto
+    means = model.params
+    ci = model.conf_int()
+    #means['Intercept'] = intercept
+    #ci.loc['Intercept'] = [intercept, intercept]
+    return means, ci
+
+results = {}
+
+for var in variables:
+    means, ci = get_means_and_ci(models[var])
+    results[var] = pd.DataFrame({
+        'mean': means,
+        'ci_lower': ci[0],
+        'ci_upper': ci[1]
+    })
+    results[var].loc[results[var].index != 'Intercept'] += results[var].loc['Intercept', 'mean']
+
+old_keys = ['Ei', 'DTi', 'Vi']
+new_keys = ['EGRAs', 'Docentes', 'Videos']
+
+for kn, ko in zip(new_keys, old_keys):
+    results[kn] = results[ko]
+    del results[ko]
+    results[kn].rename(index = {'Intercept': 'Control'}, inplace = True)
+
+# Crear gráficos con plotly
+def create_bar_plot(results, variable):
+    data = results[variable]
+    fig = go.Figure()
+    
+    for index, row in data.iterrows():
+        fig.add_trace(go.Bar(
+            x=[row['mean'] * 100],  # Convertir a porcentaje
+            y=[index],
+            orientation='h',
+            error_x=dict(
+                type='data',
+                array=[(row['ci_upper'] - row['mean']) * 100],  # Convertir a porcentaje
+                arrayminus=[(row['mean'] - row['ci_lower']) * 100]  # Convertir a porcentaje
+            ),
+            marker_color='lightblue',  # Color de las barras
+            text=[f'{row["mean"] * 100:.2f}%'],  # Información del hover
+            textposition= "none",  # Posición del texto
+            hoverinfo='text'  # Mostrar solo el texto
+        ))
+
+    fig.update_layout(
+        title=f'{variable}',
+        xaxis_title='Porcentaje',
+        xaxis=dict(range=[0, 100]),  # Rango de 0 a 100
+        barmode='group'
+    )
+
+    # set showlegend property by name of trace
+    for trace in fig['data']: 
+        trace['showlegend'] = False
+
+    return fig
+
 with tab1:
     # Mostrar las barras de progreso con etiquetas de porcentaje
     st.header('Progreso hacia las metas')
@@ -202,16 +287,6 @@ with tab2:
     filtered_data = filtered_data[['E', 'D', 'DA', 'V']].astype(int)
     st.dataframe(filtered_data)
 
-    # Mostrar el mapa
-    st.header('Mapa de Centros Educativos Encuestados')
-
-    mapa_data = encuestas_ce.loc[(encuestas_ce.Latitud != 0), ['Latitud', 'Longitud']]
-    mapa_data.columns = ['lat', 'lon']
-    mapa_data.dropna(inplace = True)
-    mapa_data.drop_duplicates(inplace = True)
-    st.map(mapa_data)
-
-
 # Metas
 metas = {
     "Control": 274,
@@ -226,33 +301,41 @@ encuestas_tratamiento = encuestas_ce.groupby(['treatment'])[['E','DT','V']].sum(
 # st.table(encuestas_tratamiento.astype(int))
 
 with tab3:
-    st.header("Progreso por Categoría")
+    st.header("Progreso por Grupo de Tratamiento")
 
     # Para EGRA (Meta: 1000 para cada grupo)
-    st.subheader("EGRA")
-    for grupo in encuestas_tratamiento.index:
-        progreso_egra = int((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100)
-        progreso_egra_d = np.round((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100,1)
-        st.text(f"{grupo}: {progreso_egra_d}% - ({int(encuestas_tratamiento.loc[grupo, 'E'])}/1000)")
-        st.progress(progreso_egra)
+    #st.subheader("EGRA")
+    #for grupo in encuestas_tratamiento.index:
+    #    progreso_egra = int((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100)
+    #    progreso_egra_d = np.round((encuestas_tratamiento.loc[grupo, 'E'] / 1000) * 100,1)
+    #    st.text(f"{grupo}: {progreso_egra_d}% - ({int(encuestas_tratamiento.loc[grupo, 'E'])}/1000)")
+    #    st.progress(progreso_egra)
 
     # Para Docentes (Meta: específica para cada grupo)
-    st.subheader("Docentes")
-    for grupo in encuestas_tratamiento.index:
-        meta_docentes = metas[grupo]
-        progreso_docentes = int((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes) * 100)
-        progreso_docentes_d = np.round((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes * 100),1)
-        st.text(f"{grupo}: {progreso_docentes_d}% - ({int(encuestas_tratamiento.loc[grupo, 'DT'])}/{meta_docentes})")
-        st.progress(progreso_docentes)
+    #st.subheader("Docentes")
+    #for grupo in encuestas_tratamiento.index:
+    #    meta_docentes = metas[grupo]
+    #    progreso_docentes = int((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes) * 100)
+    #    progreso_docentes_d = np.round((encuestas_tratamiento.loc[grupo, 'DT'] / meta_docentes * 100),1)
+    #    st.text(f"{grupo}: {progreso_docentes_d}% - ({int(encuestas_tratamiento.loc[grupo, 'DT'])}/{meta_docentes})")
+    #    st.progress(progreso_docentes)
 
     # Para Videos (Meta: específica para cada grupo)
-    st.subheader("Videos")
-    for grupo in encuestas_tratamiento.index:
-        meta_videos = metas[grupo]
-        progreso_videos = int((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos) * 100)
-        progreso_videos_d = np.round((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos * 100),1)
-        st.text(f"{grupo}: {progreso_videos_d}% - ({int(encuestas_tratamiento.loc[grupo, 'V'])}/{meta_videos})")
-        st.progress(progreso_videos)
+    #st.subheader("Videos")
+    #for grupo in encuestas_tratamiento.index:
+    #    meta_videos = metas[grupo]
+    #    progreso_videos = int((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos) * 100)
+    #    progreso_videos_d = np.round((encuestas_tratamiento.loc[grupo, 'V'] / meta_videos * 100),1)
+    #    st.text(f"{grupo}: {progreso_videos_d}% - ({int(encuestas_tratamiento.loc[grupo, 'V'])}/{meta_videos})")
+    #    st.progress(progreso_videos)
+
+    # Aplicación de Streamlit
+    #st.title('Análisis de Attrition en RCT')
+
+    for var in new_keys:
+        #st.subheader(f'Gráfico para {var}')
+        fig = create_bar_plot(results, var)
+        st.plotly_chart(fig)
 
 with tab4:
 
