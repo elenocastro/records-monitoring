@@ -402,16 +402,17 @@ with tab4:
     st.dataframe(filtered_data)
 
     
-    st.header(f'Docentes sin EGRAs (N = {str(n_egras)})')
-    st.dataframe(data_doc[data_doc['E'] == 0])
+    st.header(f'Docentes Completos')
+    st.write('Filtrar datos:')
+    Con_EGRAS = st.checkbox('Docentes con EGRAs', value = True)
+    Con_Encuestas = st.checkbox('Docentes con Encuestas', value = True)
+    Con_Videos = st.checkbox('Docentes con Vídeos', value = True)
 
-    
-    st.header(f'Docentes sin Encuestas (N = {str(n_encu)})')
-    st.dataframe(data_doc[(data_doc['D'] == 0) & (data_doc['DA'] == 0)])
+    cond_egras = (data_doc['E'] != 0) if Con_EGRAS else (data_doc['E'] == 0)
+    cond_encuestas = (data_doc[['D', 'DA']].sum(axis = 1) != 0) if Con_Encuestas else (data_doc[['D', 'DA']].sum(axis = 1) == 0)
+    cond_videos = (data_doc['V'] != 0) if Con_Videos else (data_doc['V'] == 0)
 
-    
-    st.header(f'Docentes sin Videos (N = {str(n_video)})')
-    st.dataframe(data_doc[data_doc['V'] == 0])
+    st.dataframe(data_doc[cond_egras & cond_encuestas & cond_videos])
 
 
 with tab5:
