@@ -67,44 +67,6 @@ for section in sections:
 egra['Invalid'] = (egra[egra.columns[egra.columns.str.contains('invalid')]].sum(axis=1)>0)*1
 
 
-# Contar el número de encuestas por fecha de inicio
-encuestas_por_fecha1 = egra['start_date'].value_counts().sort_index()
-encuestas_por_fecha2 = docentes['start_date'].value_counts().sort_index()
-encuestas_por_fecha3 = docentes_auto['start_date'].value_counts().sort_index()
-encuestas_por_fecha4 = videos['start_date'].value_counts().sort_index()
-
-
-# Combinar los conteos de los tres DataFrames en un solo DataFrame
-encuestas_por_fecha_total = pd.concat([encuestas_por_fecha1, encuestas_por_fecha2, 
-                                       encuestas_por_fecha3, encuestas_por_fecha4], axis=1)
-encuestas_por_fecha_total.columns = ['EGRA', 'Docentes', 'Docentes-Autoadministrada', 'Videos Teach']
-encuestas_por_fecha_total = encuestas_por_fecha_total.fillna(int(0))
-encuestas_por_fecha_total = encuestas_por_fecha_total.sort_index(ascending=False)
-
-
-# Convertir el índice a string para que solo muestre la fecha sin la hora
-# encuestas_por_fecha_total.index = encuestas_por_fecha_total.index.astype(str)
-encuestas_por_fecha1.index = encuestas_por_fecha1.index.astype(str)
-encuestas_por_fecha2.index = encuestas_por_fecha2.index.astype(str)
-encuestas_por_fecha3.index = encuestas_por_fecha3.index.astype(str)
-encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
-
-# Calcular los totales para las barras de progreso
-totals = encuestas_por_fecha_total.sum(axis=0)
-egras_total = totals['EGRA']  # Suponiendo que 'Encuestas1' es EGRA
-docentes_total = totals['Docentes'] + totals['Docentes-Autoadministrada']  # Suponiendo que 'Encuestas2' y 'Encuestas3' son docentes y docentes-autoadministradas
-videos_total = totals['Videos Teach']  # Restar los otros totales para obtener el total de videos
-
-# Definir las metas
-meta_egra = 5000
-meta_docentes = 1408
-meta_videos = 1408
-
-# Calcular los porcentajes de progreso
-progreso_egra = int(egras_total / meta_egra * 100)
-progreso_docentes = int(docentes_total / meta_docentes * 100)
-progreso_videos = int(videos_total / meta_videos * 100)
-
 #Contando encuestas por docente
 
 ## ANADIENDO docente_id para todos los casos posibles
@@ -154,6 +116,44 @@ docentes_ce[data_ava] = docentes_ce[data_ava].fillna(0)
 docentes_ce['DT'] = docentes_ce[['D', 'DA']].sum(axis = 1)
 docentes_ce[['Ei','DTi','Vi']] = (docentes_ce[['E','DT','V']] > 0)*1
 docentes_ce_reg = docentes_ce[['Ei','DTi','Vi','Tratamiento', 'Código']]
+
+# Contar el número de encuestas por fecha de inicio
+encuestas_por_fecha1 = egra['start_date'].value_counts().sort_index()
+encuestas_por_fecha2 = docentes['start_date'].value_counts().sort_index()
+encuestas_por_fecha3 = docentes_auto['start_date'].value_counts().sort_index()
+encuestas_por_fecha4 = videos['start_date'].value_counts().sort_index()
+
+
+# Combinar los conteos de los tres DataFrames en un solo DataFrame
+encuestas_por_fecha_total = pd.concat([encuestas_por_fecha1, encuestas_por_fecha2, 
+                                       encuestas_por_fecha3, encuestas_por_fecha4], axis=1)
+encuestas_por_fecha_total.columns = ['EGRA', 'Docentes', 'Docentes-Autoadministrada', 'Videos Teach']
+encuestas_por_fecha_total = encuestas_por_fecha_total.fillna(int(0))
+encuestas_por_fecha_total = encuestas_por_fecha_total.sort_index(ascending=False)
+
+
+# Convertir el índice a string para que solo muestre la fecha sin la hora
+# encuestas_por_fecha_total.index = encuestas_por_fecha_total.index.astype(str)
+encuestas_por_fecha1.index = encuestas_por_fecha1.index.astype(str)
+encuestas_por_fecha2.index = encuestas_por_fecha2.index.astype(str)
+encuestas_por_fecha3.index = encuestas_por_fecha3.index.astype(str)
+encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
+
+# Calcular los totales para las barras de progreso
+totals = encuestas_por_fecha_total.sum(axis=0)
+egras_total = totals['EGRA']  # Suponiendo que 'Encuestas1' es EGRA
+docentes_total = totals['Docentes'] + totals['Docentes-Autoadministrada']  # Suponiendo que 'Encuestas2' y 'Encuestas3' son docentes y docentes-autoadministradas
+videos_total = totals['Videos Teach']  # Restar los otros totales para obtener el total de videos
+
+# Definir las metas
+meta_egra = 5000
+meta_docentes = 1408
+meta_videos = 1408
+
+# Calcular los porcentajes de progreso
+progreso_egra = int(egras_total / meta_egra * 100)
+progreso_docentes = int(docentes_total / meta_docentes * 100)
+progreso_videos = int(videos_total / meta_videos * 100)
 
 def run_clustered_regression(df, dependent_var, cluster_var='Código'):
     model = ols(f'{dependent_var} ~ Tratamiento', data=df).fit(cov_type='cluster', cov_kwds={'groups': df[cluster_var]})
