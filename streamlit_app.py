@@ -48,6 +48,23 @@ docentes_auto['start_date'] = docentes_auto['starttime'].dt.date
 videos['Date'] = pd.to_datetime(videos['Date'], format='%Y%m%d')
 videos['start_date'] = videos['Date'].dt.date
 
+# Encontrando EGRA invalidos
+# Principal razon: Los encuestador no terminan la prueba en un minuto a pesar de que el estudiante no se equivoca en primeros items
+
+first_line  = {'letter': [f'letters_{i}' for i in range(1, 11)], 
+'nonwords': [f'nonwords_{i}' for i in range(1, 6)],
+'reading': [f'reading_{i}' for i in range(1, 11)],}
+
+sections = ['letter', 'nonwords', 'reading']
+
+for section in sections:
+    egra[section + '_invalid'] = 0
+    cond1 = egra[ section + '_time'] >= 10
+    cond2 = (egra[first_line[section]].mean(axis = 1) != 1)
+    
+    egra.loc[cond1 & cond2, section + '_invalid'] = 1
+
+egra['Invalid'] = (egra[egra.columns[egra.columns.str.contains('invalid')]].sum(axis=1)>0)*1
 
 
 # Contar el número de encuestas por fecha de inicio
@@ -97,6 +114,10 @@ egra['docente_merge'] = pd.to_numeric(egra['docente'], errors='coerce', downcast
 egra.loc[egra.docente.isna(), 'docente_merge'] = egra.loc[egra.docente.isna(), 'docente_administrativo']
 egra['docente_merge'] = pd.to_numeric(egra['docente_merge'], errors='coerce', downcast='integer')
 
+#Filtrando y dejando solo validos
+egra_invalid = egra[egra.Invalid == 1]
+egra = egra[egra.Invalid == 0]
+
 #contando por docente
 egra_x_doc = egra.docente_merge.value_counts()
 doc_x_doc = docentes.docente.value_counts()
@@ -122,8 +143,8 @@ data_doc = data_doc.merge(docentes_ce[['unique_id', 'NIP',  'Código', 'Nombre_D
                on = 'unique_id', how = 'left')
 data_doc = data_doc.set_index(['unique_id', 'NIP','Código', 'Nombre_Docente' ]).fillna(0)
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Por Fecha", "Por Centro Educativo", 
-                      'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias', 'NIEs x Docente'])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Por Fecha", "Por Centro Educativo", 
+                      'Por Grupo de Tratamiento', 'Por Docente', 'Inconsistencias', 'NIEs x Docente', 'Invalidos'])
 
 
 # Revisando attrition por grupo
@@ -433,8 +454,6 @@ with tab5:
     st.dataframe(duplicados)
 
 
-
-
 with tab6:
 
     st.header('NIEs por Docentes')
@@ -463,3 +482,68 @@ with tab6:
     
     # Convertir los valores a enteros
     st.dataframe(filtered_data)
+
+with tab7:
+
+    # Convert starttime to datetime
+    egra_invalid['starttime'] = pd.to_datetime(egra_invalid['starttime'], format='%d/%m/%Y, %H:%M:%S')
+    # Create a new column for the week period
+    egra_invalid['week_period'] = egra_invalid['starttime'].dt.to_period('W').apply(lambda r: f"{r.start_time.strftime('%d/%m')}-{(r.end_time - pd.Timedelta(days=1)).strftime('%d/%m')}")
+    # Group by encuestador and week_period and count invalid observations
+    weekly_invalids = egra_invalid.groupby(['encuestador', 'week_period'])['Invalid'].sum().unstack(fill_value=0)
+    # Sort columns to have the most recent on the left
+    weekly_invalids = weekly_invalids[sorted(weekly_invalids.columns, key=lambda x: pd.to_datetime(x.split('-')[0], format='%d/%m'), reverse=True)]
+    # Create a column for the total invalid observations per encuestador
+    total_invalids = egra_invalid.groupby('encuestador')['Invalid'].sum()
+    # Merge the weekly counts with the total counts
+    invalid_encuestador = pd.merge(total_invalids, weekly_invalids, on='encuestador')
+
+    # Combine the weekly counts with the total counts
+    #invalid_encuestador = weekly_invalids.assign(Total_Invalid=total_invalids)
+
+    # Add a row for the total per week
+    total_row = invalid_encuestador.sum().to_frame().T
+    total_row.index = ['Total']
+    invalid_encuestador = pd.concat([invalid_encuestador, total_row])
+    invalid_encuestador.columns.name = 'Encuestador'
+    invalid_encuestador = invalid_encuestador.sort_values(by = 'Invalid', ascending = False).rename(columns = {'Invalid': 'Invalidos'})
+
+    st.subheader('Invalidos por Encuestador')
+    st.dataframe(invalid_encuestador)
+
+    total_doc = egra.docente_merge.value_counts().reset_index()
+    inval_doc = egra_invalid.docente_merge.value_counts().reset_index()
+    total_doc.rename(columns = {'count': 'Validas'}, inplace = True)
+    inval_doc.rename(columns = {'count': 'Invalidas'}, inplace = True)
+
+    inval_doc = pd.merge(total_doc, inval_doc, on = 'docente_merge', how = 'right').rename(columns = {'docente_merge': 'unique_id'}).fillna(0)
+    inval_doc = pd.merge(docentes_ce[['unique_id', 'Nombre_Docente', 'Código']], inval_doc, on = 'unique_id', how= 'right')
+    inval_doc['Realizadas'] = inval_doc['Validas'] + inval_doc['Invalidas']
+    inval_doc = inval_doc.set_index(['unique_id', 'Código', 'Nombre_Docente' ])
+    
+    # Añadir buscador para filtrar por centro educativo
+    st.subheader('Docentes con EGRAs Invalidas')
+    search_doc3 = st.text_input('Buscar por Docente Invalido')
+    search_school_inv = st.text_input('Buscar por Escuelas [usar código sin comas, ejemplo: 11135]')
+    if search_doc3 or search_school_inv:
+        if search_doc3:
+            cond1 = inval_doc.index.get_level_values('Nombre_Docente').str.contains(search_doc, case=False)
+        else:
+            cond1 = True
+        if search_school_inv:
+            cond2 = inval_doc.index.get_level_values('Código') == np.int32(search_school)
+        else:
+            cond2 = True
+        filtered_data_inv = inval_doc[cond1 & cond2]
+    else:
+        filtered_data_inv = inval_doc
+    
+    # Convertir los valores a enteros
+    st.dataframe(filtered_data_inv)
+
+    st.subheader('Docentes con Todas EGRAs Invalidas ')
+    st.dataframe(inval_doc[inval_doc['Validas'] == 0])
+
+    st.subheader('Invalidos por sección')
+    invalid_sect = egra_invalid[['letter_invalid', 'nonwords_invalid', 'reading_invalid']]
+    st.dataframe(invalid_sect.mean().reset_index().rename(columns = {'index': 'Sección', 0: 'Porcentaje'}))
