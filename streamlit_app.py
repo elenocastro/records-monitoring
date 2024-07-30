@@ -548,7 +548,7 @@ with tab6:
                left_on = 'docente_merge', right_on = 'unique_id', how = 'left')
     docentes_nie['nie_duplicado'] = docentes_nie.id_estudiante_nie.duplicated(keep = False)
     docentes_nie = docentes_nie[['id_estudiante_nie', 'unique_id', 'Nombre_Docente', 'Código', 'nie_duplicado']]
-    docentes_nie.set_index(['id_estudiante_nie', 'Nombre_Docente'], inplace = True)
+    docentes_nie.set_index(['id_estudiante_nie', 'Nombre_Docente', 'Código'], inplace = True)
     
     # Añadir buscador para filtrar por centro educativo
     search_doc2 = st.text_input('Buscar por Docente ')
