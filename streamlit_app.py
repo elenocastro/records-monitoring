@@ -16,6 +16,7 @@ videos_url = 'https://www.dropbox.com/scl/fi/r8usgt8n0iyshbzklyqcz/videos_teach_
 docentes_ce_url = 'https://www.dropbox.com/scl/fi/p27k5o7zup7igecfxrjkk/CONTINUIDAD_27062024.xlsx?rlkey=j52pkyf338d1d0ym76igi0440&st=xouj06hu&dl=1'
 assignment_ce_url = 'https://www.dropbox.com/scl/fi/uvh67un6k4e6en2yccr7d/assignment_groups_03072023.dta?rlkey=ck70b2ybt7a6hiccpfz5umgwx&st=uud5uifp&dl=1'
 docente_per_nie_url = 'https://www.dropbox.com/scl/fi/sribjlu271u6dcoyf0jw7/docente_nie.csv?rlkey=542yce4sqed1wxtds69z4katk&dl=1'
+realizadas_url = 'https://www.dropbox.com/scl/fi/sgzntwl10er7etgc1bqhx/REALIZADAS.xlsx?rlkey=saeehnadamjapnsx6umrsel3g&dl=1'
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
@@ -25,6 +26,7 @@ videos = pd.read_excel(videos_url)
 docentes_ce = pd.read_excel(docentes_ce_url, converters = {'NIE':str, 'unique_id': str})
 assignment_ce = pd.read_stata(assignment_ce_url)
 docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': str})
+realizadas = pd.read_excel(realizadas_url)
 
 #videos añadiendo unique_id
 #videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
@@ -395,6 +397,80 @@ with tab4:
     st.progress(por_n_video)
     #st.write(f'Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
 
+    ### Docentes con data incompleta - justificada
+    st.header('Docentes con data incompleta - justificada:')
+    rel_col_realizadas = ['unique_ID', 'VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']
+    realizadas = realizadas[rel_col_realizadas].replace('\xa0', np.nan)
+    realizadas = realizadas[rel_col_realizadas].replace('8', np.nan)
+    realizadas = realizadas[realizadas[['VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']].sum(axis = 1) != 0]
+
+    #merging with doc data
+    realizadas.rename(columns = { 'unique_ID': 'unique_id'}, inplace = True)
+    pendientes = data_doc.reset_index()[['unique_id', 'Nombre_Docente', 'E', 'D', 'DA', 'V']]
+    realizadas = pendientes.merge(realizadas, on = 'unique_id', how = 'left')
+
+    #contando cuado hay justificación y no hay data
+    cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].notna()
+    cond_not_data_e = realizadas['E'] == 0
+
+    cond_inc_d = realizadas['ENCUESTA_INCIDENCIAS'].notna()
+    cond_not_data_d = realizadas[['D', 'DA']].sum(axis = 1) == 0
+
+    cond_inc_v = realizadas['VIDEO_INCIDENCIAS'].notna()
+    cond_not_data_v = realizadas['V'] == 0
+
+    n_egras_inju = (cond_inc_e & cond_not_data_e).sum()
+    n_encu_inju = (cond_inc_d & cond_not_data_d).sum()
+    n_video_inju = (cond_inc_v & cond_not_data_v).sum()
+
+    por_n_egras_inju = int(n_egras_inju/len(data_doc) * 100)
+    por_n_encu_inju = int(n_encu_inju/len(data_doc) * 100)
+    por_n_video_inju = int(n_video_inju/len(data_doc) * 100)
+
+    st.write(f'Docentes sin Egras justificadas: {por_n_egras_inju}% - ({int(n_egras_inju)}/{total_doc})')
+    st.progress(por_n_egras_inju)
+    #st.write(f'Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
+
+    st.write(f'Docentes sin Encuestas justificadas: {por_n_encu_inju}% - ({int(n_encu_inju)}/{total_doc})')
+    st.progress(por_n_encu_inju)
+    #st.write(f'Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
+
+    st.write(f'Docentes sin Vídeos justificadas: {por_n_video_inju}% - ({int(n_video_inju)}/{total_doc})')
+    st.progress(por_n_video_inju)
+
+
+     ### Docentes con data incompleta - INjustificadag
+    st.header('Docentes con data incompleta - injustificada:')
+
+    #contando cuado hay justificación y no hay data
+    cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].isna()
+    cond_not_data_e = realizadas['E'] == 0
+
+    cond_inc_d = realizadas['ENCUESTA_INCIDENCIAS'].isna()
+    cond_not_data_d = realizadas[['D', 'DA']].sum(axis = 1) == 0
+
+    cond_inc_v = realizadas['VIDEO_INCIDENCIAS'].isna()
+    cond_not_data_v = realizadas['V'] == 0
+
+    n_egras_ju = (cond_inc_e & cond_not_data_e).sum()
+    n_encu_ju = (cond_inc_d & cond_not_data_d).sum()
+    n_video_ju = (cond_inc_v & cond_not_data_v).sum()
+
+    por_n_egras_ju = int(n_egras_ju/len(data_doc) * 100)
+    por_n_encu_ju = int(n_encu_ju/len(data_doc) * 100)
+    por_n_video_ju = int(n_video_ju/len(data_doc) * 100)
+
+    st.write(f'Docentes sin Egras justificadas: {por_n_egras_ju}% - ({int(n_egras_ju)}/{total_doc})')
+    st.progress(por_n_egras_ju)
+    #st.write(f'Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
+
+    st.write(f'Docentes sin Encuestas justificadas: {por_n_encu_ju}% - ({int(n_encu_ju)}/{total_doc})')
+    st.progress(por_n_encu_ju)
+    #st.write(f'Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
+
+    st.write(f'Docentes sin Vídeos justificadas: {por_n_video_ju}% - ({int(n_video_ju)}/{total_doc})')
+    st.progress(por_n_video_ju)
+
 
     st.header('Número de encuestas por Docente')
     st.write('E - EGRA')
@@ -434,6 +510,16 @@ with tab4:
     cond_videos = (data_doc['V'] != 0) if Con_Videos else (data_doc['V'] == 0)
 
     st.dataframe(data_doc[cond_egras & cond_encuestas & cond_videos])
+
+
+    st.header('Docentes Pendientes (no justificados)')
+    realizadas['E - Pendientes'] = cond_inc_e & cond_not_data_e
+    realizadas['D - Pendientes'] = cond_inc_d & cond_not_data_d
+    realizadas['V - Pendientes'] = cond_inc_v & cond_not_data_v
+    realizadas['Pendiente'] = realizadas[['E - Pendientes', 'D - Pendientes', 'V - Pendientes']].sum(axis = 1) > 0
+    table_pendiente = realizadas[['unique_id','Nombre_Docente', 'Pendiente', 'E - Pendientes', 'D - Pendientes', 'V - Pendientes']].set_index(['unique_id', 'Nombre_Docente'])
+    table_pendiente.sort_values(by = 'Pendiente', ascending = False, inplace = True)
+    st.dataframe(table_pendiente)
 
 
 with tab5:
