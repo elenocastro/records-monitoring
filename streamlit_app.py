@@ -633,3 +633,6 @@ with tab7:
     st.subheader('Invalidos por sección')
     invalid_sect = egra_invalid[['letter_invalid', 'nonwords_invalid', 'reading_invalid']]
     st.dataframe(invalid_sect.mean().reset_index().rename(columns = {'index': 'Sección', 0: 'Porcentaje'}))
+
+    st.subheader('Registros invalidos')
+    st.dataframe(egra_invalid[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
