@@ -634,5 +634,6 @@ with tab7:
     invalid_sect = egra_invalid[['letter_invalid', 'nonwords_invalid', 'reading_invalid']]
     st.dataframe(invalid_sect.mean().reset_index().rename(columns = {'index': 'Sección', 0: 'Porcentaje'}))
 
-    st.subheader('Registros invalidos')
-    st.dataframe(egra_invalid[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
+    st.subheader('Registros invalidos - no incluye invalidos duplicados')
+    egra_invalid_not_duplicated = egra_invalid.drop_duplicates(subset = 'id_estudiante_nie')
+    st.dataframe(egra_invalid_not_duplicated[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
