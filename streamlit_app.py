@@ -248,9 +248,9 @@ with tab1:
 
     vacations = ['2024-08-02', '2024-08-06', '2024-08-05']
     promedios_diarios = encuestas_por_fecha_total[~pd.to_datetime(encuestas_por_fecha_total.index).isin(vacations)].mean()
-    dias_faltantes_egra = int((meta_egra - egras_total)/promedios_diarios.EGRA)
-    dias_faltantes_docentes = int((meta_docentes - docentes_total)/(promedios_diarios['Docentes'] + promedios_diarios['Docentes-Autoadministrada']))
-    dias_faltantes_videos = int((meta_videos - videos_total)/promedios_diarios['Videos Teach'])
+    dias_faltantes_egra = int((meta_egra - egras_total)/promedios_diarios.EGRA) + 1
+    dias_faltantes_docentes = int((meta_docentes - docentes_total)/(promedios_diarios['Docentes'] + promedios_diarios['Docentes-Autoadministrada'])) + 1
+    dias_faltantes_videos = int((meta_videos - videos_total)/promedios_diarios['Videos Teach']) + 1
 
     hoy = datetime.now()
 
