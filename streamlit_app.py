@@ -4,6 +4,8 @@ import numpy as np
 from statsmodels.formula.api import ols
 import statsmodels.api as sm
 import plotly.graph_objects as go
+from datetime import datetime, timedelta
+
 
 
 st.title("📊 Monitoreo de registros")
@@ -17,6 +19,7 @@ docentes_ce_url = 'https://www.dropbox.com/scl/fi/p27k5o7zup7igecfxrjkk/CONTINUI
 assignment_ce_url = 'https://www.dropbox.com/scl/fi/uvh67un6k4e6en2yccr7d/assignment_groups_03072023.dta?rlkey=ck70b2ybt7a6hiccpfz5umgwx&st=uud5uifp&dl=1'
 docente_per_nie_url = 'https://www.dropbox.com/scl/fi/sribjlu271u6dcoyf0jw7/docente_nie.csv?rlkey=542yce4sqed1wxtds69z4katk&dl=1'
 realizadas_url = 'https://www.dropbox.com/scl/fi/sgzntwl10er7etgc1bqhx/REALIZADAS.xlsx?rlkey=saeehnadamjapnsx6umrsel3g&dl=1'
+duplicados_url = 'https://www.dropbox.com/scl/fi/r60m9s8uja52kgtrm54uk/Duplicados.csv?rlkey=jw4lskjf7tggrqd23yrqsctte&dl=1'
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
@@ -27,10 +30,18 @@ docentes_ce = pd.read_excel(docentes_ce_url, converters = {'NIE':str, 'unique_id
 assignment_ce = pd.read_stata(assignment_ce_url)
 docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': str})
 realizadas = pd.read_excel(realizadas_url)
+duplicados_correction = pd.read_csv(duplicados_url)
+
 
 #videos añadiendo unique_id
 #videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
 
+
+#ajustando duplicados
+duplicados_correction.dropna(inplace = True)
+egra = egra.merge(duplicados_correction[['KEY', 'nie_correcto']], how= 'left')
+egra.loc[egra.nie_correcto.notna(), 'id_estudiante_nie'] = egra.loc[egra.nie_correcto.notna(), 'nie_correcto']
+egra.drop(columns = ['nie_correcto'], inplace = True)
 
 # Convertir columnas de fechas a tipo datetime
 egra['SubmissionDate'] = pd.to_datetime(egra['SubmissionDate'])
@@ -235,21 +246,42 @@ with tab1:
     # Mostrar las barras de progreso con etiquetas de porcentaje
     st.header('Progreso hacia las metas')
 
+    vacations = ['2024-08-02', '2024-08-06', '2024-08-05']
+    promedios_diarios = encuestas_por_fecha_total[~pd.to_datetime(encuestas_por_fecha_total.index).isin(vacations)].mean()
+    dias_faltantes_egra = int((meta_egra - egras_total)/promedios_diarios.EGRA)
+    dias_faltantes_docentes = int((meta_docentes - docentes_total)/(promedios_diarios['Docentes'] + promedios_diarios['Docentes-Autoadministrada']))
+    dias_faltantes_videos = int((meta_videos - videos_total)/promedios_diarios['Videos Teach'])
+
+    hoy = datetime.now()
+
+    fecha_egra = hoy + timedelta(days = dias_faltantes_egra)
+    fecha_docentes = hoy + timedelta(days = dias_faltantes_docentes)
+    fecha_videos = hoy + timedelta(days = dias_faltantes_videos)
+
+    # Formatear la fecha en español
+    fecha_egra = fecha_egra.strftime('%d/%b/%Y')
+    fecha_docentes = fecha_docentes.strftime('%d/%b/%Y')
+    fecha_videos = fecha_videos.strftime('%d/%b/%Y')
+
     st.write(f'EGRA. Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
+    st.write(f'Fecha estimada de finalización: {fecha_egra}')
     st.progress(progreso_egra)
     #st.write(f'Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
 
     st.write(f'Docentes. Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
+    st.write(f'Fecha estimada de finalización: {fecha_docentes}')
     st.progress(progreso_docentes)
     #st.write(f'Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
 
     st.write(f'Videos Teach. Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
+    st.write(f'Fecha estimada de finalización: {fecha_videos}')
     st.progress(progreso_videos)
     #st.write(f'Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
 
     # Configurar el dashboard
     st.header('Número de encuestas subidas por fecha de inicio')
     # Mostrar el conteo de encuestas por fecha en una tabla
+    
     st.dataframe(encuestas_por_fecha_total.style.format("{:.0f}"))
 
     # Crear un gráfico de barras para visualizar los datos
