@@ -618,6 +618,7 @@ with tab7:
 
     # Combine the weekly counts with the total counts
     #invalid_encuestador = weekly_invalids.assign(Total_Invalid=total_invalids)
+    
 
     # Add a row for the total per week
     total_row = invalid_encuestador.sum().to_frame().T
@@ -669,3 +670,10 @@ with tab7:
     st.subheader('Registros invalidos - no incluye invalidos duplicados')
     egra_invalid_not_duplicated = egra_invalid.drop_duplicates(subset = 'id_estudiante_nie')
     st.dataframe(egra_invalid_not_duplicated[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
+
+    st.subheader('Invalidos por encuestador')
+    invalid_encuestador_doc = egra_invalid.groupby(['encuestador', 'docente_merge'])['Invalid'].sum().reset_index()
+    invalid_encuestador_doc = invalid_encuestador_doc.rename(columns = {'docente_merge': 'unique_id'})
+    invalid_encuestador_doc = pd.merge(docentes_ce[['unique_id', 'Nombre_Docente', 'Código']], invalid_encuestador_doc, on = 'unique_id', how= 'right')
+    invalid_encuestador_doc = invalid_encuestador_doc.set_index(['unique_id', 'Código', 'Nombre_Docente' ])
+    st.dataframe(invalid_encuestador_doc)
