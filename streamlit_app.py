@@ -671,7 +671,7 @@ with tab7:
     egra_invalid_not_duplicated = egra_invalid.drop_duplicates(subset = 'id_estudiante_nie')
     st.dataframe(egra_invalid_not_duplicated[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
 
-    st.subheader('Invalidos por encuestador')
+    st.subheader('Invalidos por encuestador y docente')
     invalid_encuestador_doc = egra_invalid.groupby(['encuestador', 'docente_merge'])['Invalid'].sum().reset_index()
     invalid_encuestador_doc = invalid_encuestador_doc.rename(columns = {'docente_merge': 'unique_id'})
     invalid_encuestador_doc = pd.merge(docentes_ce[['unique_id', 'Nombre_Docente', 'Código']], invalid_encuestador_doc, on = 'unique_id', how= 'right')
