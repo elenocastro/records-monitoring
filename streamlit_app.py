@@ -242,15 +242,41 @@ def create_bar_plot(results, variable):
 
     return fig
 
+
+# Calculando Razones justificables para restar a la meta de EGRA
+rel_col_realizadas = ['unique_ID', 'VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']
+realizadas = realizadas[rel_col_realizadas].replace('\xa0', np.nan)
+realizadas = realizadas[rel_col_realizadas].replace('8', np.nan)
+realizadas = realizadas[realizadas[['VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']].sum(axis = 1) != 0]
+
+#merging with doc data
+realizadas.rename(columns = { 'unique_ID': 'unique_id'}, inplace = True)
+pendientes = data_doc.reset_index()[['unique_id', 'Nombre_Docente', 'E', 'D', 'DA', 'V']]
+realizadas = pendientes.merge(realizadas, on = 'unique_id', how = 'left')
+
+#contando cuado hay justificación y no hay data
+cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].notna()
+cond_not_data_e = realizadas['E'] == 0
+
+cond_inc_d = realizadas['ENCUESTA_INCIDENCIAS'].notna()
+cond_not_data_d = realizadas[['D', 'DA']].sum(axis = 1) == 0
+
+cond_inc_v = realizadas['VIDEO_INCIDENCIAS'].notna()
+cond_not_data_v = realizadas['V'] == 0
+
+n_egras_ju = (cond_inc_e & cond_not_data_e).sum()
+n_encu_ju = (cond_inc_d & cond_not_data_d).sum()
+n_video_ju = (cond_inc_v & cond_not_data_v).sum()
+
 with tab1:
     # Mostrar las barras de progreso con etiquetas de porcentaje
     st.header('Progreso hacia las metas')
 
     vacations = ['2024-08-02', '2024-08-06', '2024-08-05']
     promedios_diarios = encuestas_por_fecha_total[~pd.to_datetime(encuestas_por_fecha_total.index).isin(vacations)].mean()
-    dias_faltantes_egra = int((meta_egra - egras_total)/promedios_diarios.EGRA) + 1
-    dias_faltantes_docentes = int((meta_docentes - docentes_total)/(promedios_diarios['Docentes'] + promedios_diarios['Docentes-Autoadministrada'])) + 1
-    dias_faltantes_videos = int((meta_videos - videos_total)/promedios_diarios['Videos Teach']) + 1
+    dias_faltantes_egra = int((meta_egra - n_egras_ju - egras_total)/promedios_diarios.EGRA) + 1
+    dias_faltantes_docentes = int((meta_docentes - n_encu_ju - docentes_total)/(promedios_diarios['Docentes'] + promedios_diarios['Docentes-Autoadministrada'])) + 1
+    dias_faltantes_videos = int((meta_videos - n_video_ju - videos_total)/promedios_diarios['Videos Teach']) + 1
 
     hoy = datetime.now()
 
@@ -268,12 +294,12 @@ with tab1:
     st.progress(progreso_egra)
     #st.write(f'Progreso: {progreso_egra}% - ({int(egras_total)}/{meta_egra})')
 
-    st.write(f'Docentes. Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
+    st.write(f'Docentes. Progreso: {progreso_docentes}% - ({int(docentes_total + n_encu_ju)}/{meta_docentes})')
     st.write(f'Fecha estimada de finalización: {fecha_docentes}')
     st.progress(progreso_docentes)
     #st.write(f'Progreso: {progreso_docentes}% - ({int(docentes_total)}/{meta_docentes})')
 
-    st.write(f'Videos Teach. Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
+    st.write(f'Videos Teach. Progreso: {progreso_videos}% - ({int(videos_total + n_video_ju)}/{meta_videos})')
     st.write(f'Fecha estimada de finalización: {fecha_videos}')
     st.progress(progreso_videos)
     #st.write(f'Progreso: {progreso_videos}% - ({int(videos_total)}/{meta_videos})')
@@ -431,15 +457,6 @@ with tab4:
 
     ### Docentes con data incompleta - justificada
     st.header('Docentes con data incompleta - justificada:')
-    rel_col_realizadas = ['unique_ID', 'VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']
-    realizadas = realizadas[rel_col_realizadas].replace('\xa0', np.nan)
-    realizadas = realizadas[rel_col_realizadas].replace('8', np.nan)
-    realizadas = realizadas[realizadas[['VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']].sum(axis = 1) != 0]
-
-    #merging with doc data
-    realizadas.rename(columns = { 'unique_ID': 'unique_id'}, inplace = True)
-    pendientes = data_doc.reset_index()[['unique_id', 'Nombre_Docente', 'E', 'D', 'DA', 'V']]
-    realizadas = pendientes.merge(realizadas, on = 'unique_id', how = 'left')
 
     #contando cuado hay justificación y no hay data
     cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].notna()
