@@ -152,6 +152,33 @@ encuestas_por_fecha2.index = encuestas_por_fecha2.index.astype(str)
 encuestas_por_fecha3.index = encuestas_por_fecha3.index.astype(str)
 encuestas_por_fecha4.index = encuestas_por_fecha4.index.astype(str)
 
+
+# Calculando Razones justificables para restar a la meta de EGRA
+rel_col_realizadas = ['unique_ID', 'VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']
+realizadas = realizadas[rel_col_realizadas].replace('\xa0', np.nan)
+realizadas = realizadas[rel_col_realizadas].replace('8', np.nan)
+realizadas = realizadas[realizadas[['VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']].sum(axis = 1) != 0]
+
+#merging with doc data
+realizadas.rename(columns = { 'unique_ID': 'unique_id'}, inplace = True)
+pendientes = data_doc.reset_index()[['unique_id', 'Nombre_Docente', 'E', 'D', 'DA', 'V']]
+realizadas = pendientes.merge(realizadas, on = 'unique_id', how = 'left')
+
+#contando cuado hay justificación y no hay data
+cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].notna()
+cond_not_data_e = realizadas['E'] == 0
+
+cond_inc_d = realizadas['ENCUESTA_INCIDENCIAS'].notna()
+cond_not_data_d = realizadas[['D', 'DA']].sum(axis = 1) == 0
+
+cond_inc_v = realizadas['VIDEO_INCIDENCIAS'].notna()
+cond_not_data_v = realizadas['V'] == 0
+
+n_egras_ju = (cond_inc_e & cond_not_data_e).sum()
+n_encu_ju = (cond_inc_d & cond_not_data_d).sum()
+n_video_ju = (cond_inc_v & cond_not_data_v).sum()
+
+
 # Calcular los totales para las barras de progreso
 totals = encuestas_por_fecha_total.sum(axis=0)
 egras_total = totals['EGRA']  # Suponiendo que 'Encuestas1' es EGRA
@@ -165,8 +192,8 @@ meta_videos = 1408
 
 # Calcular los porcentajes de progreso
 progreso_egra = int(egras_total / meta_egra * 100)
-progreso_docentes = int(docentes_total / meta_docentes * 100)
-progreso_videos = int(videos_total / meta_videos * 100)
+progreso_docentes = int( (docentes_total + n_encu_ju) / meta_docentes * 100)
+progreso_videos = int( (videos_total + n_video_ju) / meta_videos * 100)
 
 def run_clustered_regression(df, dependent_var, cluster_var='Código'):
     model = ols(f'{dependent_var} ~ Tratamiento', data=df).fit(cov_type='cluster', cov_kwds={'groups': df[cluster_var]})
@@ -242,31 +269,6 @@ def create_bar_plot(results, variable):
 
     return fig
 
-
-# Calculando Razones justificables para restar a la meta de EGRA
-rel_col_realizadas = ['unique_ID', 'VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']
-realizadas = realizadas[rel_col_realizadas].replace('\xa0', np.nan)
-realizadas = realizadas[rel_col_realizadas].replace('8', np.nan)
-realizadas = realizadas[realizadas[['VIDEO_INCIDENCIAS', 'ENCUESTA_INCIDENCIAS', 'EGRAS_INCIDENCIAS']].sum(axis = 1) != 0]
-
-#merging with doc data
-realizadas.rename(columns = { 'unique_ID': 'unique_id'}, inplace = True)
-pendientes = data_doc.reset_index()[['unique_id', 'Nombre_Docente', 'E', 'D', 'DA', 'V']]
-realizadas = pendientes.merge(realizadas, on = 'unique_id', how = 'left')
-
-#contando cuado hay justificación y no hay data
-cond_inc_e = realizadas['EGRAS_INCIDENCIAS'].notna()
-cond_not_data_e = realizadas['E'] == 0
-
-cond_inc_d = realizadas['ENCUESTA_INCIDENCIAS'].notna()
-cond_not_data_d = realizadas[['D', 'DA']].sum(axis = 1) == 0
-
-cond_inc_v = realizadas['VIDEO_INCIDENCIAS'].notna()
-cond_not_data_v = realizadas['V'] == 0
-
-n_egras_ju = (cond_inc_e & cond_not_data_e).sum()
-n_encu_ju = (cond_inc_d & cond_not_data_d).sum()
-n_video_ju = (cond_inc_v & cond_not_data_v).sum()
 
 with tab1:
     # Mostrar las barras de progreso con etiquetas de porcentaje
