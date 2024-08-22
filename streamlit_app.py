@@ -195,6 +195,7 @@ progreso_egra = int(egras_total / meta_egra * 100)
 progreso_docentes = int( (docentes_total + n_encu_ju) / meta_docentes * 100)
 progreso_videos = int( (videos_total + n_video_ju) / meta_videos * 100)
 
+#arreglar efecto fijo strata
 def run_clustered_regression(df, dependent_var, cluster_var='Código'):
     model = ols(f'{dependent_var} ~ Tratamiento', data=df).fit(cov_type='cluster', cov_kwds={'groups': df[cluster_var]})
     return model
@@ -211,7 +212,7 @@ def get_means_and_ci(model):
     intercept = model.params['Intercept']
     treatment_groups = model.params.index  # Incluye el intercepto
     means = model.params
-    ci = model.conf_int()
+    ci = model.conf_int(alpha=0.10)
     #means['Intercept'] = intercept
     #ci.loc['Intercept'] = [intercept, intercept]
     return means, ci
