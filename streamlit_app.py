@@ -20,6 +20,7 @@ assignment_ce_url = 'https://www.dropbox.com/scl/fi/uvh67un6k4e6en2yccr7d/assign
 docente_per_nie_url = 'https://www.dropbox.com/scl/fi/sribjlu271u6dcoyf0jw7/docente_nie.csv?rlkey=542yce4sqed1wxtds69z4katk&dl=1'
 realizadas_url = 'https://www.dropbox.com/scl/fi/sgzntwl10er7etgc1bqhx/REALIZADAS.xlsx?rlkey=saeehnadamjapnsx6umrsel3g&dl=1'
 duplicados_url = 'https://www.dropbox.com/scl/fi/r60m9s8uja52kgtrm54uk/Duplicados.csv?rlkey=jw4lskjf7tggrqd23yrqsctte&dl=1'
+egra_invalidos_url = 'https://www.dropbox.com/scl/fi/lo0fb6t0w3gzoq3hecdih/EGRA-Invalidos.csv?rlkey=9xv7n2hankbfeedgrooxk3s1y&dl=1'
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
@@ -31,17 +32,37 @@ assignment_ce = pd.read_stata(assignment_ce_url)
 docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': str})
 realizadas = pd.read_excel(realizadas_url)
 duplicados_correction = pd.read_csv(duplicados_url)
+egra_invalidos = pd.read_csv(egra_invalidos_url)
 
 
 #videos añadiendo unique_id
 #videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
 
+#Manteniendo la primera encuesta realizada por docentes
+docentes_long = pd.concat([docentes, docentes_auto], ignore_index = True)
+doc_duplicates = docentes_long.loc[docentes_long.docente.duplicated(keep = 'last'), 'KEY'].values
+
+docentes_auto = docentes_auto[~docentes_auto.KEY.isin(doc_duplicates)]
+docentes = docentes[~docentes.KEY.isin(doc_duplicates)]
 
 #ajustando duplicados
 duplicados_correction.dropna(inplace = True)
 egra = egra.merge(duplicados_correction[['KEY', 'nie_correcto']], how= 'left')
 egra.loc[egra.nie_correcto.notna(), 'id_estudiante_nie'] = egra.loc[egra.nie_correcto.notna(), 'nie_correcto']
 egra.drop(columns = ['nie_correcto'], inplace = True)
+
+
+#recuperando invalidos
+# Hacer un merge sobre el ID, pero solo con las columnas que necesitamos actualizar
+combined = pd.merge(egra, egra_invalidos, on='id_estudiante_nie', how='left', suffixes=('', '_invalids'))
+
+# Reemplazar los valores en `egra` con los valores de `egra_invalidos` donde no hay missing values
+for column in egra.columns:
+    if column != 'id_estudiante_nie':
+        invalid_column = f'{column}_invalids'
+        # Usar fillna para sustituir los valores en `egra` con los valores no nulos de `egra_invalidos`
+        egra[column] = combined[invalid_column].combine_first(egra[column])
+        
 
 # Convertir columnas de fechas a tipo datetime
 egra['SubmissionDate'] = pd.to_datetime(egra['SubmissionDate'])
