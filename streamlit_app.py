@@ -21,6 +21,8 @@ docente_per_nie_url = 'https://www.dropbox.com/scl/fi/sribjlu271u6dcoyf0jw7/doce
 realizadas_url = 'https://www.dropbox.com/scl/fi/sgzntwl10er7etgc1bqhx/REALIZADAS.xlsx?rlkey=saeehnadamjapnsx6umrsel3g&dl=1'
 duplicados_url = 'https://www.dropbox.com/scl/fi/r60m9s8uja52kgtrm54uk/Duplicados.csv?rlkey=jw4lskjf7tggrqd23yrqsctte&dl=1'
 egra_invalidos_url = 'https://www.dropbox.com/scl/fi/lo0fb6t0w3gzoq3hecdih/EGRA-Invalidos.csv?rlkey=9xv7n2hankbfeedgrooxk3s1y&dl=1'
+docentes_pilots_added = 'https://www.dropbox.com/scl/fi/c1p90lii2imfhhen9vlmk/docentes_piloto_added.xlsx?rlkey=xzsdpy1omzuwba00xf7verrdn&dl=1'
+
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
@@ -33,12 +35,13 @@ docentes_per_nie = pd.read_csv(docente_per_nie_url, converters = {'unique_id': s
 realizadas = pd.read_excel(realizadas_url)
 duplicados_correction = pd.read_csv(duplicados_url)
 egra_invalidos = pd.read_csv(egra_invalidos_url)
-
+docentes_pilot = pd.read_excel(docentes_pilots_added)
 
 #videos añadiendo unique_id
 #videos = videos.merge(docentes_ce[['NIP', 'unique_id']].drop_duplicates(), on = 'NIP', how = 'left')
 
 #Manteniendo la primera encuesta realizada por docentes
+docentes = pd.concat([docentes, docentes_pilot], ignore_index = True)
 docentes_long = pd.concat([docentes, docentes_auto], ignore_index = True)
 doc_duplicates = docentes_long.loc[docentes_long.docente.duplicated(keep = 'last'), 'KEY'].values
 
