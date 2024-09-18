@@ -210,7 +210,7 @@ docentes_total = totals['Docentes'] + totals['Docentes-Autoadministrada']  # Sup
 videos_total = totals['Videos Teach']  # Restar los otros totales para obtener el total de videos
 
 # Definir las metas
-meta_egra = 5000
+meta_egra = egras_total
 meta_docentes = 1408
 meta_videos = 1408
 
