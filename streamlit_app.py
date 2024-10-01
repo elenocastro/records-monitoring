@@ -22,7 +22,7 @@ realizadas_url = 'https://www.dropbox.com/scl/fi/sgzntwl10er7etgc1bqhx/REALIZADA
 duplicados_url = 'https://www.dropbox.com/scl/fi/r60m9s8uja52kgtrm54uk/Duplicados.csv?rlkey=jw4lskjf7tggrqd23yrqsctte&dl=1'
 egra_invalidos_url = 'https://www.dropbox.com/scl/fi/lo0fb6t0w3gzoq3hecdih/EGRA-Invalidos.csv?rlkey=9xv7n2hankbfeedgrooxk3s1y&dl=1'
 docentes_pilots_added = 'https://www.dropbox.com/scl/fi/c1p90lii2imfhhen9vlmk/docentes_piloto_added.xlsx?rlkey=xzsdpy1omzuwba00xf7verrdn&dl=1'
-
+egras_encontradas_invalidas = 'https://www.dropbox.com/scl/fi/vuta6u0dn8mnszw93ac4l/EGRAS_consideradas_invalidas.csv?rlkey=xazff9d1q3jbz4fz4664ub6bz&dl=1'
 
 # Leer el archivo CSV desde Dropbox
 egra = pd.read_csv(egra_url)
@@ -48,11 +48,7 @@ doc_duplicates = docentes_long.loc[docentes_long.docente.duplicated(keep = 'last
 docentes_auto = docentes_auto[~docentes_auto.KEY.isin(doc_duplicates)]
 docentes = docentes[~docentes.KEY.isin(doc_duplicates)]
 
-#ajustando duplicados
-duplicados_correction.dropna(inplace = True)
-egra = egra.merge(duplicados_correction[['KEY', 'nie_correcto']], how= 'left')
-egra.loc[egra.nie_correcto.notna(), 'id_estudiante_nie'] = egra.loc[egra.nie_correcto.notna(), 'nie_correcto']
-egra.drop(columns = ['nie_correcto'], inplace = True)
+
 
 
 #recuperando invalidos
@@ -116,6 +112,21 @@ egra['docente_merge'] = pd.to_numeric(egra['docente_merge'], errors='coerce', do
 #Filtrando y dejando solo validos
 egra_invalid = egra[egra.Invalid == 1]
 egra = egra[egra.Invalid == 0]
+
+#ajustando duplicados
+#Rocio pidio dropear esta lista
+duplicados_correction = duplicados_correction[duplicados_correction.nie_correcto.notna()]
+duplicados_correction.drop_duplicates(subset = 'KEY', inplace = True)
+drop_keys = duplicados_correction.loc[duplicados_correction.Note == 'Eliminar', 'KEY'].values
+egra = egra[~egra.KEY.isin(drop_keys) ]
+
+#se ajustan los duplicados
+duplicados_correction = duplicados_correction[['KEY', 'nie_correcto']].dropna()
+duplicados_correction.drop_duplicates(subset= 'KEY', keep= 'first', inplace = True)
+egra.drop_duplicates(subset = 'KEY', keep = 'first', inplace= True)
+egra = egra.merge(duplicados_correction, on = 'KEY', how= 'left')
+egra.loc[egra.nie_correcto.notna(), 'id_estudiante_nie'] = egra.loc[egra.nie_correcto.notna(), 'nie_correcto']
+egra.drop(columns = ['nie_correcto'], inplace = True)
 
 #contando por docente
 egra_x_doc = egra.docente_merge.value_counts()
@@ -606,7 +617,7 @@ with tab5:
     st.dataframe(sin_id_doc)
 
     
-    duplicados = egra[egra.id_estudiante_nie.duplicated(keep = False)]
+    duplicados = egra[(egra.id_estudiante_nie.duplicated(keep = False)) & (egra.Invalid == 0)]
     duplicados = duplicados[['id_estudiante_nie', 'School', 'starttime', 'encuestador', 'context_est_1', 'context_est_2', 'KEY']]
     duplicados.rename(columns = {'context_est_1': 'Género', 
                                  'context_est_2': 'Edad',
@@ -713,7 +724,7 @@ with tab7:
 
     st.subheader('Registros invalidos - no incluye invalidos duplicados')
     egra_invalid_not_duplicated = egra_invalid.drop_duplicates(subset = 'id_estudiante_nie')
-    st.dataframe(egra_invalid_not_duplicated[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid']])
+    st.dataframe(egra_invalid_not_duplicated[['SubmissionDate', 'id_estudiante_nie', 'docente_merge', 'School', 'letter_invalid', 'nonwords_invalid', 'reading_invalid', 'KEY']])
 
     st.subheader('Invalidos por encuestador y docente')
     invalid_encuestador_doc = egra_invalid.groupby(['encuestador', 'docente_merge'])['Invalid'].sum().reset_index()
